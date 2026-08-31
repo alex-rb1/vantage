@@ -49,6 +49,8 @@ export async function getCurrentUser() {
       where: { id: session.id },
     });
 
+    cookieStore.delete("session");
+
     return null;
   }
 

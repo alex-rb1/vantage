@@ -1,13 +1,13 @@
 "use server";
 
-
+import type { AuthActionState } from "./auth.types";
 import { redirect } from "next/navigation";
 import { loginSchema, signupSchema } from "./auth.schemas";
 import { login, signup } from "./auth.service";
 import { createSession, deleteSession } from "@/lib/auth/session";
 
 export async function signupAction(
-  prevState: { error?: string },
+  prevState: AuthActionState,
   formData: FormData
 ) {
   const result = signupSchema.safeParse({
@@ -47,7 +47,7 @@ export async function signupAction(
 }
 
 export async function loginAction(
-  prevState: { error?: string },
+  prevState: AuthActionState,
   formData: FormData
 ) {
   const result = loginSchema.safeParse({
