@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
 import { logoutAction } from "@/features/auth/auth.actions";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 export default async function AppLayout({
   children,
@@ -21,7 +22,7 @@ export default async function AppLayout({
 
         <nav>
           <a href="/dashboard">Dashboard</a>
-          <a href="/accounts">Accounts</a>
+          <Link href="/accounts">Accounts</Link>
           <a href="/transactions">Transactions</a>
           <a href="/budgets">Budgets</a>
           <a href="/goals">Goals</a>

@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getAccounts } from "@/features/accounts/account.service";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AccountForm } from "@/features/accounts/account-form";
+import Link from "next/link";
 
 export default async function AccountsPage() {
   const user = await getCurrentUser();
@@ -32,28 +33,33 @@ export default async function AccountsPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {accounts.map((account) => (
-            <Card key={account.id}>
-              <CardHeader>
-                <CardTitle>{account.name}</CardTitle>
-              </CardHeader>
+            <Link
+                key={account.id}
+                href={`/accounts/${account.id}`}
+            >
+                <Card key={account.id}>
+                <CardHeader>
+                    <CardTitle>{account.name}</CardTitle>
+                </CardHeader>
 
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  {account.type.replace("_", " ")}
-                </p>
-
-                <p className="mt-2 text-2xl font-semibold">
-                  ${account.balance.toFixed(2)}
-                </p>
-
-                {account.type === "CREDIT_CARD" &&
-                  account.creditLimit !== null && (
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      Limit: ${account.creditLimit.toFixed(2)}
+                <CardContent>
+                    <p className="text-sm text-muted-foreground">
+                    {account.type.replace("_", " ")}
                     </p>
-                  )}
-              </CardContent>
-            </Card>
+
+                    <p className="mt-2 text-2xl font-semibold">
+                    ${account.balance.toFixed(2)}
+                    </p>
+
+                    {account.type === "CREDIT_CARD" &&
+                    account.creditLimit !== null && (
+                        <p className="mt-2 text-sm text-muted-foreground">
+                        Limit: ${account.creditLimit.toFixed(2)}
+                        </p>
+                    )}
+                </CardContent>
+                </Card>
+            </Link>
           ))}
         </div>
       )}
