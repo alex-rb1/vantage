@@ -1,5 +1,6 @@
 "use server";
 
+import { Prisma } from "@/generated/prisma/client";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth/session";
 import {
@@ -43,9 +44,15 @@ export async function createCategoryAction(
 
   try {
     await createCategory(user.id, result.data);
-  } catch {
-    // We'll improve Prisma-specific duplicate handling during refactoring.
+  } catch (error) {
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  ) {
     return { error: "Duplicate category name." };
+  }
+
+  throw error;
   }
 
   revalidatePath("/categories");
@@ -79,9 +86,23 @@ export async function updateCategoryAction(
 
   try {
     await updateCategory(user.id, categoryId, result.data);
-  } catch {
-    return { error: "Could not update category." };
+  } catch (error) {
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  ) {
+    return { error: "Duplicate category name." };
   }
+
+  if (
+    error instanceof Error &&
+    error.message === "Category not found"
+  ) {
+    return { error: "Category not found." };
+  }
+
+  throw error;
+}
 
   revalidatePath("/categories");
 
