@@ -23,6 +23,9 @@ export default async function AppLayout({
         <nav>
           <a href="/dashboard">Dashboard</a>
           <Link href="/accounts">Accounts</Link>
+          <Link href="/categories">
+            Categories
+          </Link>
           <a href="/transactions">Transactions</a>
           <a href="/budgets">Budgets</a>
           <a href="/goals">Goals</a>
