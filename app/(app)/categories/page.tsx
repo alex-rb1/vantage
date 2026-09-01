@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { getCategories } from "@/features/categories/category.service";
 import { CategoryForm } from "@/features/categories/category-form";
 import { CategoryCard } from "@/features/categories/category-card";
+import { StarterCategorySelector } from "@/features/categories/starter-category-selector";
 
 export default async function CategoriesPage() {
   const user = await getCurrentUser();
@@ -20,6 +21,10 @@ export default async function CategoriesPage() {
         <p className="text-sm text-muted-foreground">
           Organize your spending categories.
         </p>
+      </div>
+
+      <div className="mb-6">
+        <StarterCategorySelector />
       </div>
 
       <div className="mb-8 max-w-md">
