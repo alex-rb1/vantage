@@ -67,36 +67,100 @@ export async function createTransaction(
     }
 
     if (input.type === "EXPENSE") {
-    if (!input.categoryId) {
-      throw new Error("Category is required for expenses");
+      if (!input.categoryId) {
+        throw new Error("Category is required for expenses");
+      }
+
+      const category = await tx.category.findFirst({
+        where: {
+          id: input.categoryId,
+          userId,
+        },
+      });
+
+      if (!category) {
+        throw new Error("Category not found");
+      }
+
+      if (account.type === "CREDIT_CARD") {
+        await tx.account.update({
+          where: { id: account.id },
+          data: {
+            balance: {
+              increment: input.amount,
+            },
+          },
+        });
+      } else {
+        await tx.account.update({
+          where: { id: account.id },
+          data: {
+            balance: {
+              decrement: input.amount,
+            },
+          },
+        });
+      }
+
+      return tx.transaction.create({
+        data: {
+          userId,
+          type: input.type,
+          amount: input.amount,
+          date: input.date,
+          description: input.description,
+          accountId: input.accountId,
+          categoryId: input.categoryId,
+        },
+      });
+    }
+    if (input.type === "TRANSFER") {
+    if (!input.destinationAccountId) {
+      throw new Error("Destination account is required for transfers");
     }
 
-    const category = await tx.category.findFirst({
-      where: {
-        id: input.categoryId,
-        userId,
+    if (input.accountId === input.destinationAccountId) {
+      throw new Error("Source and destination accounts must be different");
+    }
+
+    const destinationAccount = await getOwnedAccount(
+      tx,
+      userId,
+      input.destinationAccountId
+    );
+
+    if (account.type === "CREDIT_CARD") {
+      throw new Error("Transfers from credit cards are not supported");
+    }
+
+    await tx.account.update({
+      where: { id: account.id },
+      data: {
+        balance: {
+          decrement: input.amount,
+        },
       },
     });
 
-    if (!category) {
-      throw new Error("Category not found");
-    }
+    if (destinationAccount.type === "CREDIT_CARD") {
+      if (input.amount > destinationAccount.balance.toNumber()) {
+        throw new Error("Payment cannot exceed credit card balance");
+      }
 
-    if (account.type === "CREDIT_CARD") {
       await tx.account.update({
-        where: { id: account.id },
+        where: { id: destinationAccount.id },
         data: {
           balance: {
-            increment: input.amount,
+            decrement: input.amount,
           },
         },
       });
     } else {
       await tx.account.update({
-        where: { id: account.id },
+        where: { id: destinationAccount.id },
         data: {
           balance: {
-            decrement: input.amount,
+            increment: input.amount,
           },
         },
       });
@@ -110,7 +174,7 @@ export async function createTransaction(
         date: input.date,
         description: input.description,
         accountId: input.accountId,
-        categoryId: input.categoryId,
+        destinationAccountId: input.destinationAccountId,
       },
     });
   }
