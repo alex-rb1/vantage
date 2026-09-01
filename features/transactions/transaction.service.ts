@@ -66,6 +66,55 @@ export async function createTransaction(
       });
     }
 
+    if (input.type === "EXPENSE") {
+    if (!input.categoryId) {
+      throw new Error("Category is required for expenses");
+    }
+
+    const category = await tx.category.findFirst({
+      where: {
+        id: input.categoryId,
+        userId,
+      },
+    });
+
+    if (!category) {
+      throw new Error("Category not found");
+    }
+
+    if (account.type === "CREDIT_CARD") {
+      await tx.account.update({
+        where: { id: account.id },
+        data: {
+          balance: {
+            increment: input.amount,
+          },
+        },
+      });
+    } else {
+      await tx.account.update({
+        where: { id: account.id },
+        data: {
+          balance: {
+            decrement: input.amount,
+          },
+        },
+      });
+    }
+
+    return tx.transaction.create({
+      data: {
+        userId,
+        type: input.type,
+        amount: input.amount,
+        date: input.date,
+        description: input.description,
+        accountId: input.accountId,
+        categoryId: input.categoryId,
+      },
+    });
+  }
+
     throw new Error("Transaction type not implemented");
   });
 }
