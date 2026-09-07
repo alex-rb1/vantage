@@ -83,6 +83,16 @@ export async function createTransaction(
       }
 
       if (account.type === "CREDIT_CARD") {
+        if (account.creditLimit === null) {
+          throw new Error("Credit card must have a credit limit");
+        }
+
+        const resultingBalance = account.balance.add(input.amount);
+
+        if (resultingBalance.greaterThan(account.creditLimit)) {
+          throw new Error("Transaction exceeds credit limit");
+        }
+
         await tx.account.update({
           where: { id: account.id },
           data: {
