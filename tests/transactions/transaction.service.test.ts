@@ -83,4 +83,50 @@ describe("createTransaction", () => {
     expect(mocks.accountUpdate).not.toHaveBeenCalled();
     expect(mocks.transactionCreate).not.toHaveBeenCalled();
   });
+
+  it("accepts a credit card expense that reaches the credit limit", async () => {
+    mocks.accountFindFirst.mockResolvedValue({
+      id: 1,
+      balance: new Prisma.Decimal("900.00"),
+      creditLimit: new Prisma.Decimal("1000.00"),
+      type: "CREDIT_CARD",
+    });
+
+    mocks.categoryFindFirst.mockResolvedValue({
+      id: 1,
+    });
+
+    mocks.accountUpdate.mockResolvedValue({});
+    mocks.transactionCreate.mockResolvedValue({ id: 1 });
+
+    await createTransaction(1, {
+      type: "EXPENSE",
+      amount: 100,
+      date: new Date("2026-09-06T12:00:00.000Z"),
+      description: "Groceries",
+      accountId: 1,
+      categoryId: 1,
+    });
+
+    expect(mocks.accountUpdate).toHaveBeenCalledWith({
+      where: { id: 1 },
+      data: {
+        balance: {
+          increment: 100,
+        },
+      },
+    });
+
+    expect(mocks.transactionCreate).toHaveBeenCalledWith({
+      data: {
+        userId: 1,
+        type: "EXPENSE",
+        amount: 100,
+        date: new Date("2026-09-06T12:00:00.000Z"),
+        description: "Groceries",
+        accountId: 1,
+        categoryId: 1,
+      },
+    });
+  });
 });
