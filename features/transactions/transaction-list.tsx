@@ -136,7 +136,11 @@ export function TransactionList({
         <Button type="submit" variant="secondary">
           Apply
         </Button>
-        <Button render={<Link href="/transactions" />} variant="ghost">
+        <Button
+          render={<Link href="/transactions" />}
+          nativeButton={false}
+          variant="ghost"
+        >
           Clear
         </Button>
       </form>

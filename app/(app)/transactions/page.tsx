@@ -13,6 +13,7 @@ import {
 
 type TransactionSearchParams = {
   created?: string;
+  deleted?: string;
   type?: string;
   accountId?: string;
   categoryId?: string;
@@ -83,13 +84,26 @@ export default async function TransactionsPage({
         </div>
       )}
 
+      {params.deleted === "true" && (
+        <div
+          className="mb-6 max-w-2xl rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
+          role="status"
+        >
+          Transaction deleted and balance effects reversed.
+        </div>
+      )}
+
       {accounts.length === 0 ? (
         <div className="max-w-2xl rounded-2xl border bg-card p-6">
           <h2 className="font-medium">Add an account first</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Transactions need an active account to update.
           </p>
-          <Button render={<Link href="/accounts" />} className="mt-4">
+          <Button
+            render={<Link href="/accounts" />}
+            nativeButton={false}
+            className="mt-4"
+          >
             Go to accounts
           </Button>
         </div>

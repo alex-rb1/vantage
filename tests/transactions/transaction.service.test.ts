@@ -5,7 +5,10 @@ const mocks = vi.hoisted(() => ({
   accountFindFirst: vi.fn(),
   accountUpdate: vi.fn(),
   categoryFindFirst: vi.fn(),
+  transactionFindFirst: vi.fn(),
   transactionCreate: vi.fn(),
+  transactionUpdate: vi.fn(),
+  transactionDelete: vi.fn(),
 }));
 
 type MockTransactionCallback = (tx: {
@@ -17,7 +20,10 @@ type MockTransactionCallback = (tx: {
     findFirst: typeof mocks.categoryFindFirst;
   };
   transaction: {
+    findFirst: typeof mocks.transactionFindFirst;
     create: typeof mocks.transactionCreate;
+    update: typeof mocks.transactionUpdate;
+    delete: typeof mocks.transactionDelete;
   };
 }) => unknown;
 
@@ -33,14 +39,21 @@ vi.mock("@/lib/db/prisma", () => ({
           findFirst: mocks.categoryFindFirst,
         },
         transaction: {
+          findFirst: mocks.transactionFindFirst,
           create: mocks.transactionCreate,
+          update: mocks.transactionUpdate,
+          delete: mocks.transactionDelete,
         },
       })
     ),
   },
 }));
 
-import { createTransaction } from "@/features/transactions/transaction.service";
+import {
+  createTransaction,
+  deleteTransaction,
+  updateTransaction,
+} from "@/features/transactions/transaction.service";
 
 describe("createTransaction", () => {
   beforeEach(() => {
@@ -128,5 +141,89 @@ describe("createTransaction", () => {
         categoryId: 1,
       },
     });
+  });
+
+  it("reverses the old expense before applying an edited amount", async () => {
+    mocks.transactionFindFirst.mockResolvedValue({
+      id: 10,
+      type: "EXPENSE",
+      amount: new Prisma.Decimal("10.00"),
+      accountId: 1,
+      destinationAccountId: null,
+      account: { type: "CHEQUING" },
+      destinationAccount: null,
+    });
+    mocks.accountFindFirst.mockResolvedValue({
+      id: 1,
+      type: "CHEQUING",
+    });
+    mocks.categoryFindFirst.mockResolvedValue({ id: 1 });
+    mocks.accountUpdate.mockResolvedValue({});
+    mocks.transactionUpdate.mockResolvedValue({ id: 10 });
+
+    await updateTransaction(1, 10, {
+      type: "EXPENSE",
+      amount: 15,
+      date: new Date("2026-09-08T12:00:00.000Z"),
+      description: "Updated groceries",
+      accountId: 1,
+      categoryId: 1,
+    });
+
+    expect(mocks.accountUpdate).toHaveBeenNthCalledWith(1, {
+      where: { id: 1 },
+      data: { balance: { increment: new Prisma.Decimal("10.00") } },
+    });
+    expect(mocks.accountUpdate).toHaveBeenNthCalledWith(2, {
+      where: { id: 1 },
+      data: { balance: { decrement: 15 } },
+    });
+    expect(mocks.transactionUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 10 } })
+    );
+  });
+
+  it("reverses both sides before deleting a credit card payment", async () => {
+    mocks.transactionFindFirst.mockResolvedValue({
+      id: 20,
+      type: "TRANSFER",
+      amount: new Prisma.Decimal("40.00"),
+      accountId: 2,
+      destinationAccountId: 3,
+      account: { type: "SAVINGS" },
+      destinationAccount: { type: "CREDIT_CARD" },
+    });
+    mocks.accountUpdate.mockResolvedValue({});
+    mocks.transactionDelete.mockResolvedValue({ id: 20 });
+
+    await deleteTransaction(1, 20);
+
+    expect(mocks.accountUpdate).toHaveBeenNthCalledWith(1, {
+      where: { id: 2 },
+      data: { balance: { increment: new Prisma.Decimal("40.00") } },
+    });
+    expect(mocks.accountUpdate).toHaveBeenNthCalledWith(2, {
+      where: { id: 3 },
+      data: { balance: { increment: new Prisma.Decimal("40.00") } },
+    });
+    expect(mocks.transactionDelete).toHaveBeenCalledWith({
+      where: { id: 20 },
+    });
+  });
+
+  it("rejects editing a transaction that does not belong to the user", async () => {
+    mocks.transactionFindFirst.mockResolvedValue(null);
+
+    await expect(
+      updateTransaction(1, 99, {
+        type: "INCOME",
+        amount: 50,
+        date: new Date("2026-09-08T12:00:00.000Z"),
+        accountId: 1,
+      })
+    ).rejects.toThrow("Transaction not found");
+
+    expect(mocks.accountUpdate).not.toHaveBeenCalled();
+    expect(mocks.transactionUpdate).not.toHaveBeenCalled();
   });
 });

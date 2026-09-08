@@ -62,6 +62,23 @@ export async function getTransactions(
   });
 }
 
+export async function getTransactionById(
+  userId: number,
+  transactionId: number
+) {
+  return prisma.transaction.findFirst({
+    where: {
+      id: transactionId,
+      userId,
+    },
+    include: {
+      account: true,
+      destinationAccount: true,
+      category: true,
+    },
+  });
+}
+
 async function getOwnedAccount(
   tx: TransactionClient,
   userId: number,
@@ -82,148 +99,163 @@ async function getOwnedAccount(
   return account;
 }
 
+async function applyTransactionEffects(
+  tx: TransactionClient,
+  userId: number,
+  input: CreateTransactionInput
+) {
+  const account = await getOwnedAccount(tx, userId, input.accountId);
+
+  if (input.type === "INCOME") {
+    if (account.type === "CREDIT_CARD") {
+      throw new Error("Income cannot be added to a credit card");
+    }
+
+    await tx.account.update({
+      where: { id: account.id },
+      data: { balance: { increment: input.amount } },
+    });
+    return;
+  }
+
+  if (input.type === "EXPENSE") {
+    if (!input.categoryId) {
+      throw new Error("Category is required for expenses");
+    }
+
+    const category = await tx.category.findFirst({
+      where: { id: input.categoryId, userId },
+    });
+
+    if (!category) {
+      throw new Error("Category not found");
+    }
+
+    if (account.type === "CREDIT_CARD") {
+      if (account.creditLimit === null) {
+        throw new Error("Credit card must have a credit limit");
+      }
+
+      if (account.balance.add(input.amount).greaterThan(account.creditLimit)) {
+        throw new Error("Transaction exceeds credit limit");
+      }
+
+      await tx.account.update({
+        where: { id: account.id },
+        data: { balance: { increment: input.amount } },
+      });
+    } else {
+      await tx.account.update({
+        where: { id: account.id },
+        data: { balance: { decrement: input.amount } },
+      });
+    }
+    return;
+  }
+
+  if (!input.destinationAccountId) {
+    throw new Error("Destination account is required for transfers");
+  }
+
+  if (input.accountId === input.destinationAccountId) {
+    throw new Error("Source and destination accounts must be different");
+  }
+
+  if (account.type === "CREDIT_CARD") {
+    throw new Error("Transfers from credit cards are not supported");
+  }
+
+  const destinationAccount = await getOwnedAccount(
+    tx,
+    userId,
+    input.destinationAccountId
+  );
+
+  if (
+    destinationAccount.type === "CREDIT_CARD" &&
+    destinationAccount.balance.lessThan(input.amount)
+  ) {
+    throw new Error("Payment cannot exceed credit card balance");
+  }
+
+  await tx.account.update({
+    where: { id: account.id },
+    data: { balance: { decrement: input.amount } },
+  });
+
+  await tx.account.update({
+    where: { id: destinationAccount.id },
+    data: {
+      balance:
+        destinationAccount.type === "CREDIT_CARD"
+          ? { decrement: input.amount }
+          : { increment: input.amount },
+    },
+  });
+}
+
+type StoredTransaction = {
+  type: "INCOME" | "EXPENSE" | "TRANSFER";
+  amount: Prisma.Decimal;
+  accountId: number;
+  destinationAccountId: number | null;
+  account: { type: "CHEQUING" | "SAVINGS" | "CASH" | "CREDIT_CARD" };
+  destinationAccount: {
+    type: "CHEQUING" | "SAVINGS" | "CASH" | "CREDIT_CARD";
+  } | null;
+};
+
+async function reverseTransactionEffects(
+  tx: TransactionClient,
+  transaction: StoredTransaction
+) {
+  if (transaction.type === "INCOME") {
+    await tx.account.update({
+      where: { id: transaction.accountId },
+      data: { balance: { decrement: transaction.amount } },
+    });
+    return;
+  }
+
+  if (transaction.type === "EXPENSE") {
+    await tx.account.update({
+      where: { id: transaction.accountId },
+      data: {
+        balance:
+          transaction.account.type === "CREDIT_CARD"
+            ? { decrement: transaction.amount }
+            : { increment: transaction.amount },
+      },
+    });
+    return;
+  }
+
+  await tx.account.update({
+    where: { id: transaction.accountId },
+    data: { balance: { increment: transaction.amount } },
+  });
+
+  if (!transaction.destinationAccountId || !transaction.destinationAccount) {
+    throw new Error("Transaction destination account not found");
+  }
+
+  await tx.account.update({
+    where: { id: transaction.destinationAccountId },
+    data: {
+      balance:
+        transaction.destinationAccount.type === "CREDIT_CARD"
+          ? { increment: transaction.amount }
+          : { decrement: transaction.amount },
+    },
+  });
+}
+
 export async function createTransaction(
   userId: number,
   input: CreateTransactionInput
 ) {
   return prisma.$transaction(async (tx) => {
-    const account = await getOwnedAccount(tx, userId, input.accountId);
-
-    if (input.type === "INCOME") {
-      if (account.type === "CREDIT_CARD") {
-        throw new Error("Income cannot be added to a credit card");
-      }
-
-      await tx.account.update({
-        where: { id: account.id },
-        data: {
-          balance: {
-            increment: input.amount,
-          },
-        },
-      });
-
-      return tx.transaction.create({
-        data: {
-          userId,
-          type: input.type,
-          amount: input.amount,
-          date: input.date,
-          description: input.description,
-          accountId: input.accountId,
-        },
-      });
-    }
-
-    if (input.type === "EXPENSE") {
-      if (!input.categoryId) {
-        throw new Error("Category is required for expenses");
-      }
-
-      const category = await tx.category.findFirst({
-        where: {
-          id: input.categoryId,
-          userId,
-        },
-      });
-
-      if (!category) {
-        throw new Error("Category not found");
-      }
-
-      if (account.type === "CREDIT_CARD") {
-        if (account.creditLimit === null) {
-          throw new Error("Credit card must have a credit limit");
-        }
-
-        const resultingBalance = account.balance.add(input.amount);
-
-        if (resultingBalance.greaterThan(account.creditLimit)) {
-          throw new Error("Transaction exceeds credit limit");
-        }
-
-        await tx.account.update({
-          where: { id: account.id },
-          data: {
-            balance: {
-              increment: input.amount,
-            },
-          },
-        });
-      } else {
-        await tx.account.update({
-          where: { id: account.id },
-          data: {
-            balance: {
-              decrement: input.amount,
-            },
-          },
-        });
-      }
-
-      return tx.transaction.create({
-        data: {
-          userId,
-          type: input.type,
-          amount: input.amount,
-          date: input.date,
-          description: input.description,
-          accountId: input.accountId,
-          categoryId: input.categoryId,
-        },
-      });
-    }
-    if (input.type === "TRANSFER") {
-    if (!input.destinationAccountId) {
-      throw new Error("Destination account is required for transfers");
-    }
-
-    if (input.accountId === input.destinationAccountId) {
-      throw new Error("Source and destination accounts must be different");
-    }
-
-    const destinationAccount = await getOwnedAccount(
-      tx,
-      userId,
-      input.destinationAccountId
-    );
-
-    if (account.type === "CREDIT_CARD") {
-      throw new Error("Transfers from credit cards are not supported");
-    }
-
-    await tx.account.update({
-      where: { id: account.id },
-      data: {
-        balance: {
-          decrement: input.amount,
-        },
-      },
-    });
-
-    if (destinationAccount.type === "CREDIT_CARD") {
-      if (input.amount > destinationAccount.balance.toNumber()) {
-        throw new Error("Payment cannot exceed credit card balance");
-      }
-
-      await tx.account.update({
-        where: { id: destinationAccount.id },
-        data: {
-          balance: {
-            decrement: input.amount,
-          },
-        },
-      });
-    } else {
-      await tx.account.update({
-        where: { id: destinationAccount.id },
-        data: {
-          balance: {
-            increment: input.amount,
-          },
-        },
-      });
-    }
+    await applyTransactionEffects(tx, userId, input);
 
     return tx.transaction.create({
       data: {
@@ -233,11 +265,67 @@ export async function createTransaction(
         date: input.date,
         description: input.description,
         accountId: input.accountId,
-        destinationAccountId: input.destinationAccountId,
+        ...(input.type === "TRANSFER"
+          ? { destinationAccountId: input.destinationAccountId }
+          : {}),
+        ...(input.type === "EXPENSE" ? { categoryId: input.categoryId } : {}),
       },
     });
-  }
+  });
+}
 
-    throw new Error("Transaction type not implemented");
+export async function updateTransaction(
+  userId: number,
+  transactionId: number,
+  input: CreateTransactionInput
+) {
+  return prisma.$transaction(async (tx) => {
+    const transaction = await tx.transaction.findFirst({
+      where: { id: transactionId, userId },
+      include: { account: true, destinationAccount: true },
+    });
+
+    if (!transaction) {
+      throw new Error("Transaction not found");
+    }
+
+    await reverseTransactionEffects(tx, transaction);
+    await applyTransactionEffects(tx, userId, input);
+
+    return tx.transaction.update({
+      where: { id: transaction.id },
+      data: {
+        type: input.type,
+        amount: input.amount,
+        date: input.date,
+        description: input.description ?? null,
+        accountId: input.accountId,
+        destinationAccountId:
+          input.type === "TRANSFER" ? input.destinationAccountId : null,
+        categoryId: input.type === "EXPENSE" ? input.categoryId : null,
+      },
+    });
+  });
+}
+
+export async function deleteTransaction(
+  userId: number,
+  transactionId: number
+) {
+  return prisma.$transaction(async (tx) => {
+    const transaction = await tx.transaction.findFirst({
+      where: { id: transactionId, userId },
+      include: { account: true, destinationAccount: true },
+    });
+
+    if (!transaction) {
+      throw new Error("Transaction not found");
+    }
+
+    await reverseTransactionEffects(tx, transaction);
+
+    return tx.transaction.delete({
+      where: { id: transaction.id },
+    });
   });
 }

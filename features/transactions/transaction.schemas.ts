@@ -46,4 +46,4 @@ export const createTransactionSchema = transactionBaseSchema.superRefine(
   }
 );
 
-export const updateTransactionSchema = transactionBaseSchema.partial();
+export const updateTransactionSchema = createTransactionSchema;

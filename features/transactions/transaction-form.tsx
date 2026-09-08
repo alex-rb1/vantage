@@ -6,8 +6,20 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   createTransactionAction,
+  deleteTransactionAction,
   type TransactionActionState,
+  updateTransactionAction,
 } from "./transaction.actions";
 
 type AccountOption = {
@@ -22,19 +34,38 @@ type TransactionFormProps = {
     id: number;
     name: string;
   }>;
+  transaction?: {
+    id: number;
+    type: "INCOME" | "EXPENSE" | "TRANSFER";
+    amount: number;
+    date: string;
+    description: string;
+    accountId: number;
+    destinationAccountId: number | null;
+    categoryId: number | null;
+  };
 };
 
 const initialState: TransactionActionState = {};
 
-export function TransactionForm({ accounts, categories }: TransactionFormProps) {
+export function TransactionForm({
+  accounts,
+  categories,
+  transaction,
+}: TransactionFormProps) {
+  const submitAction = transaction
+    ? updateTransactionAction.bind(null, transaction.id)
+    : createTransactionAction;
   const [state, action, pending] = useActionState(
-    createTransactionAction,
+    submitAction,
     initialState
   );
   const [type, setType] = useState<"INCOME" | "EXPENSE" | "TRANSFER">(
-    "EXPENSE"
+    transaction?.type ?? "EXPENSE"
   );
-  const [accountId, setAccountId] = useState("");
+  const [accountId, setAccountId] = useState(
+    transaction ? String(transaction.accountId) : ""
+  );
 
   const sourceAccounts = useMemo(
     () =>
@@ -51,7 +82,7 @@ export function TransactionForm({ accounts, categories }: TransactionFormProps) 
   return (
     <Card className="max-w-2xl">
       <CardHeader>
-        <CardTitle>Add transaction</CardTitle>
+        <CardTitle>{transaction ? "Edit transaction" : "Add transaction"}</CardTitle>
       </CardHeader>
       <CardContent>
         <form action={action} className="space-y-5">
@@ -83,6 +114,7 @@ export function TransactionForm({ accounts, categories }: TransactionFormProps) 
                 min="0.01"
                 step="0.01"
                 placeholder="0.00"
+                defaultValue={transaction?.amount}
                 required
               />
             </div>
@@ -114,7 +146,9 @@ export function TransactionForm({ accounts, categories }: TransactionFormProps) 
                 id="date"
                 name="date"
                 type="date"
-                defaultValue={new Date().toLocaleDateString("en-CA")}
+                defaultValue={
+                  transaction?.date ?? new Date().toLocaleDateString("en-CA")
+                }
                 required
               />
             </div>
@@ -126,6 +160,7 @@ export function TransactionForm({ accounts, categories }: TransactionFormProps) 
               <select
                 id="categoryId"
                 name="categoryId"
+                defaultValue={transaction?.categoryId ?? ""}
                 className="h-9 w-full rounded-4xl border border-input bg-input/30 px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 required
               >
@@ -145,6 +180,7 @@ export function TransactionForm({ accounts, categories }: TransactionFormProps) 
               <select
                 id="destinationAccountId"
                 name="destinationAccountId"
+                defaultValue={transaction?.destinationAccountId ?? ""}
                 className="h-9 w-full rounded-4xl border border-input bg-input/30 px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 required
               >
@@ -164,6 +200,7 @@ export function TransactionForm({ accounts, categories }: TransactionFormProps) 
               id="description"
               name="description"
               placeholder="Optional note"
+              defaultValue={transaction?.description}
             />
           </div>
 
@@ -174,9 +211,49 @@ export function TransactionForm({ accounts, categories }: TransactionFormProps) 
           )}
 
           <Button type="submit" disabled={pending || sourceAccounts.length === 0}>
-            {pending ? "Saving transaction..." : "Add transaction"}
+            {pending
+              ? "Saving transaction..."
+              : transaction
+                ? "Save changes"
+                : "Add transaction"}
           </Button>
         </form>
+
+        {transaction && (
+          <div className="mt-8 border-t pt-6">
+            <p className="mb-3 text-sm text-muted-foreground">
+              Deleting this transaction will reverse its account balance effects.
+            </p>
+            <Dialog>
+              <DialogTrigger
+                render={
+                  <Button type="button" variant="destructive">
+                    Delete transaction
+                  </Button>
+                }
+              />
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Delete this transaction?</DialogTitle>
+                  <DialogDescription>
+                    This will reverse the transaction&apos;s balance effects and
+                    permanently remove its record.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <DialogClose render={<Button type="button" variant="outline" />}>
+                    Cancel
+                  </DialogClose>
+                  <form action={deleteTransactionAction.bind(null, transaction.id)}>
+                    <Button type="submit" variant="destructive">
+                      Delete transaction
+                    </Button>
+                  </form>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
