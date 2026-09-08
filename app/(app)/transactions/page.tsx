@@ -5,11 +5,29 @@ import { getAccounts } from "@/features/accounts/account.service";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getCategories } from "@/features/categories/category.service";
 import { TransactionForm } from "@/features/transactions/transaction-form";
+import { TransactionList } from "@/features/transactions/transaction-list";
+import {
+  getTransactions,
+  type TransactionFilters,
+} from "@/features/transactions/transaction.service";
+
+type TransactionSearchParams = {
+  created?: string;
+  type?: string;
+  accountId?: string;
+  categoryId?: string;
+  sort?: string;
+};
+
+function positiveInteger(value?: string) {
+  const number = Number(value);
+  return Number.isInteger(number) && number > 0 ? number : undefined;
+}
 
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ created?: string }>;
+  searchParams: Promise<TransactionSearchParams>;
 }) {
   const user = await getCurrentUser();
 
@@ -17,10 +35,24 @@ export default async function TransactionsPage({
     redirect("/login");
   }
 
-  const [{ created }, accounts, categories] = await Promise.all([
-    searchParams,
+  const params = await searchParams;
+  const filters: TransactionFilters = {
+    type: ["INCOME", "EXPENSE", "TRANSFER"].includes(params.type ?? "")
+      ? (params.type as TransactionFilters["type"])
+      : undefined,
+    accountId: positiveInteger(params.accountId),
+    categoryId: positiveInteger(params.categoryId),
+    sort: ["newest", "oldest", "amount-high", "amount-low"].includes(
+      params.sort ?? ""
+    )
+      ? (params.sort as TransactionFilters["sort"])
+      : undefined,
+  };
+
+  const [accounts, categories, transactions] = await Promise.all([
     getAccounts(user.id),
     getCategories(user.id),
+    getTransactions(user.id, filters),
   ]);
 
   const accountOptions = accounts.map((account) => ({
@@ -42,7 +74,7 @@ export default async function TransactionsPage({
         </p>
       </div>
 
-      {created === "true" && (
+      {params.created === "true" && (
         <div
           className="mb-6 max-w-2xl rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800"
           role="status"
@@ -67,6 +99,22 @@ export default async function TransactionsPage({
           categories={categoryOptions}
         />
       )}
+
+      <TransactionList
+        transactions={transactions.map((transaction) => ({
+          id: transaction.id,
+          type: transaction.type,
+          amount: transaction.amount.toNumber(),
+          date: transaction.date.toISOString(),
+          description: transaction.description,
+          account: transaction.account,
+          destinationAccount: transaction.destinationAccount,
+          category: transaction.category,
+        }))}
+        accounts={accountOptions}
+        categories={categoryOptions}
+        filters={params}
+      />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/db/prisma";
 import type { Prisma } from "@/generated/prisma/client";
 
-type CreateTransactionInput = {
+export type CreateTransactionInput = {
   type: "INCOME" | "EXPENSE" | "TRANSFER";
   amount: number;
   date: Date;
@@ -12,6 +12,55 @@ type CreateTransactionInput = {
 };
 
 type TransactionClient = Prisma.TransactionClient;
+
+export type TransactionFilters = {
+  type?: "INCOME" | "EXPENSE" | "TRANSFER";
+  accountId?: number;
+  categoryId?: number;
+  sort?: "newest" | "oldest" | "amount-high" | "amount-low";
+};
+
+export async function getTransactions(
+  userId: number,
+  filters: TransactionFilters = {}
+) {
+  const orderBy: Prisma.TransactionOrderByWithRelationInput =
+    filters.sort === "oldest"
+      ? { date: "asc" }
+      : filters.sort === "amount-high"
+        ? { amount: "desc" }
+        : filters.sort === "amount-low"
+          ? { amount: "asc" }
+          : { date: "desc" };
+
+  return prisma.transaction.findMany({
+    where: {
+      userId,
+      type: filters.type,
+      categoryId: filters.categoryId,
+      ...(filters.accountId
+        ? {
+            OR: [
+              { accountId: filters.accountId },
+              { destinationAccountId: filters.accountId },
+            ],
+          }
+        : {}),
+    },
+    include: {
+      account: {
+        select: { id: true, name: true, type: true },
+      },
+      destinationAccount: {
+        select: { id: true, name: true, type: true },
+      },
+      category: {
+        select: { id: true, name: true, color: true },
+      },
+    },
+    orderBy,
+  });
+}
 
 async function getOwnedAccount(
   tx: TransactionClient,
