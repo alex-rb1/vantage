@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/session";
-import { logoutAction } from "@/features/auth/auth.actions";
-import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { AppNavigation } from "@/features/navigation/app-navigation";
 
 export default async function AppLayout({
   children,
@@ -16,31 +14,9 @@ export default async function AppLayout({
   }
 
   return (
-    <div>
-      <aside>
-        <h1>Vantage</h1>
-
-        <nav>
-          <a href="/dashboard">Dashboard</a>
-          <Link href="/accounts">Accounts</Link>
-          <Link href="/categories">
-            Categories
-          </Link>
-          <a href="/transactions">Transactions</a>
-          <a href="/budgets">Budgets</a>
-          <a href="/goals">Goals</a>
-          <a href="/strategies">Strategies</a>
-          <a href="/reviews">Reviews</a>
-        </nav>
-
-        <form action={logoutAction}>
-          <Button type="submit" variant="outline">
-            Log out
-          </Button>
-        </form>
-      </aside>
-
-      <main>{children}</main>
+    <div className="min-h-screen bg-muted/30 md:flex">
+      <AppNavigation user={user} />
+      <main className="min-w-0 flex-1">{children}</main>
     </div>
   );
 }
