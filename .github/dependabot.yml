@@ -1,0 +1,49 @@
+version: 2
+
+# Grouping: each ecosystem gets one weekly PR bundling all its minor and patch
+# updates. These are expected to be backwards compatible, so reviewing them
+# together cuts noise. Major updates match no group, so Dependabot opens a
+# separate PR for each one: they can contain breaking changes and deserve
+# individual review (and, for PostgreSQL, a deliberate data upgrade).
+
+updates:
+  # Actions are pinned to commit SHAs. Dependabot updates the SHA and the
+  # trailing "# vX.Y.Z" comment together.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      github-actions-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: maven
+    directory: /backend
+    schedule:
+      interval: weekly
+    groups:
+      maven-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    groups:
+      npm-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+
+  # Covers the postgres image in docker-compose.yml. It does NOT cover the
+  # Testcontainers image in TestcontainersConfiguration.java, which must be
+  # updated by hand to match.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      docker-compose-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
