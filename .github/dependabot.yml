@@ -35,6 +35,16 @@ updates:
       npm-minor-and-patch:
         patterns: ["*"]
         update-types: [minor, patch]
+    # Only major updates are ignored; minor and patch updates still arrive.
+    ignore:
+      # Revisit when typescript-eslint supports TypeScript 7 (its peer range
+      # currently stops below 6.1, so `npm ci` fails).
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+      # Its major version must match the project's Node version (.nvmrc);
+      # bump it by hand when upgrading Node.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   # Covers the postgres image in docker-compose.yml. Dependabot cannot see the
   # Testcontainers image (TestcontainersConfiguration.POSTGRES_IMAGE), so its

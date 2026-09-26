@@ -9,6 +9,7 @@ This is a learning project. The developer designs features in a separate plannin
 - **Backend:** Java 21, Spring Boot 4.x, Maven, Spring Web, Spring Data JPA (Hibernate), Spring Security, Bean Validation
 - **Database:** PostgreSQL, schema managed by Flyway
 - **Frontend:** React + TypeScript (Vite)
+- **Node:** version is declared in `.nvmrc`; `@types/node`'s major version must match it.
 - **Testing:** JUnit 5, AssertJ, Mockito, Testcontainers (PostgreSQL)
 - **Infra:** Docker Compose for local development, GitHub Actions for CI
 

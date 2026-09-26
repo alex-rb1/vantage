@@ -1,6 +1,6 @@
 name: Frontend
 
-# Runs only when frontend code or this workflow changes. Native path filters
+# Runs only when frontend code, this workflow, or .nvmrc changes. Native path filters
 # skip the whole workflow otherwise, so no extra change-detection job is needed.
 on:
   push:
@@ -8,10 +8,12 @@ on:
     paths:
       - 'frontend/**'
       - '.github/workflows/frontend.yml'
+      - '.nvmrc'
   pull_request:
     paths:
       - 'frontend/**'
       - '.github/workflows/frontend.yml'
+      - '.nvmrc'
 
 permissions:
   contents: read
@@ -28,7 +30,8 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 24
+          # Same Node version developers use locally (`nvm use`), declared once.
+          node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
