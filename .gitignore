@@ -1,0 +1,12 @@
+# Local secrets. Only .env.example is committed.
+.env
+.env.*
+!.env.example
+
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+*.iml
+
+# Backend and frontend keep their own .gitignore files for build output.

@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: vantage
+
+  config:
+    # For local development: lets `./mvnw spring-boot:run` pick up the same
+    # root .env file that docker-compose.yml uses, so credentials live in one
+    # place. "optional:" is essential. In CI and production there is no .env
+    # file; configuration comes from real environment variables, and without
+    # "optional:" the app would refuse to start. Real environment variables
+    # also take precedence over values from .env.
+    import: optional:file:../.env[.properties]
+
+  datasource:
+    # Host, port and database name have safe local defaults; the username and
+    # password deliberately do not, so they must come from the environment.
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:vantage}
+    username: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+
+  jpa:
+    # Off, so the database session closes when the service method returns.
+    # With it on, a lazy-loaded relation touched while building the response
+    # (e.g. in a controller or during JSON mapping) would silently fire extra
+    # queries outside any transaction. Off, it fails fast instead, forcing
+    # services to load everything the response needs. See CLAUDE.md.
+    open-in-view: false
+    hibernate:
+      # Flyway owns the schema. Hibernate only checks that entities match it
+      # and fails startup if they don't; it never creates or alters tables.
+      ddl-auto: validate
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      # Show each component's status (e.g. "db": UP) so a failing database is
+      # visible, but never show details such as the database product/version.
+      show-components: always

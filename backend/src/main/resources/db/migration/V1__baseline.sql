@@ -1,0 +1,7 @@
+-- Establishes the Flyway migration baseline for Vantage.
+--
+-- This migration intentionally creates nothing. It exists so that Flyway's
+-- schema history table is created and versioning starts at V1; every schema
+-- change from here on is a new V<n>__description.sql file.
+--
+-- Never edit a migration after it has been committed. Add a new one instead.
