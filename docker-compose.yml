@@ -1,9 +1,12 @@
 services:
   postgres:
-    # Pinned to a major version: minor/patch updates are safe, but a major
-    # upgrade changes the on-disk format and must be a deliberate step.
-    # Keep in sync with the Testcontainers image in the backend tests.
-    image: postgres:18-alpine
+    # Pinned to an exact minor version so every environment runs the same
+    # PostgreSQL release, and so Dependabot proposes each minor update as a PR.
+    # Minor updates are safe for existing data; a major upgrade changes the
+    # on-disk format and must be a deliberate step.
+    # Must match TestcontainersConfiguration.POSTGRES_IMAGE in the backend
+    # tests. PostgresImageConsistencyTest fails if they drift apart.
+    image: postgres:18.6-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}

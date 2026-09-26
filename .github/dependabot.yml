@@ -36,9 +36,11 @@ updates:
         patterns: ["*"]
         update-types: [minor, patch]
 
-  # Covers the postgres image in docker-compose.yml. It does NOT cover the
-  # Testcontainers image in TestcontainersConfiguration.java, which must be
-  # updated by hand to match.
+  # Covers the postgres image in docker-compose.yml. Dependabot cannot see the
+  # Testcontainers image (TestcontainersConfiguration.POSTGRES_IMAGE), so its
+  # PRs change only the compose file. The Backend workflow runs on those PRs,
+  # and PostgresImageConsistencyTest fails until the constant is updated to
+  # match: push that one-line fix to the Dependabot branch before merging.
   - package-ecosystem: docker-compose
     directory: /
     schedule:

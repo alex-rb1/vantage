@@ -9,13 +9,18 @@ import org.testcontainers.utility.DockerImageName;
 @TestConfiguration(proxyBeanMethods = false)
 class TestcontainersConfiguration {
 
-	// Same image as docker-compose.yml, so tests run against the database
-	// version we develop against. @ServiceConnection points Spring's DataSource
-	// at this container, overriding the spring.datasource.* settings.
+	// The single place the test database image is defined on the Java side.
+	// Must equal the image in docker-compose.yml so tests run against the same
+	// PostgreSQL release we develop against; PostgresImageConsistencyTest
+	// enforces this.
+	static final String POSTGRES_IMAGE = "postgres:18.6-alpine";
+
+	// @ServiceConnection points Spring's DataSource at this container,
+	// overriding the spring.datasource.* settings.
 	@Bean
 	@ServiceConnection
 	PostgreSQLContainer postgresContainer() {
-		return new PostgreSQLContainer(DockerImageName.parse("postgres:18-alpine"));
+		return new PostgreSQLContainer(DockerImageName.parse(POSTGRES_IMAGE));
 	}
 
 }

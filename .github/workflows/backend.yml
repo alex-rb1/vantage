@@ -1,6 +1,6 @@
 name: Backend
 
-# Runs only when backend code or this workflow changes. Native path filters
+# Runs only when backend code, this workflow, or docker-compose.yml changes. Native path filters
 # skip the whole workflow otherwise, so no extra change-detection job is needed.
 on:
   push:
@@ -8,10 +8,14 @@ on:
     paths:
       - 'backend/**'
       - '.github/workflows/backend.yml'
+      # Tests check that the Testcontainers image matches this file.
+      - 'docker-compose.yml'
   pull_request:
     paths:
       - 'backend/**'
       - '.github/workflows/backend.yml'
+      # Tests check that the Testcontainers image matches this file.
+      - 'docker-compose.yml'
 
 permissions:
   contents: read
