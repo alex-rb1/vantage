@@ -41,18 +41,28 @@ class PostgresImageConsistencyTest {
 	// Parses the file as YAML (SnakeYAML ships with Spring Boot for reading
 	// application.yml) rather than matching text, so comments or reordering
 	// in docker-compose.yml can't cause a false result.
-	@SuppressWarnings("unchecked")
 	private static String readComposePostgresImage() throws IOException {
 		try (Reader reader = Files.newBufferedReader(COMPOSE_FILE)) {
-			Map<String, Object> compose = new Yaml().load(reader);
-			Map<String, Object> services = (Map<String, Object>) compose.get("services");
-			Map<String, Object> postgres = (Map<String, Object>) services.get("postgres");
-			String image = (String) postgres.get("image");
-			assertThat(image)
-					.withFailMessage("No image found for services.postgres in %s", COMPOSE_FILE.toAbsolutePath())
-					.isNotBlank();
-			return image;
+			Object compose = new Yaml().load(reader);
+			Map<?, ?> services = requireMap(requireMap(compose, "the top level").get("services"), "services");
+			Map<?, ?> postgres = requireMap(services.get("postgres"), "services.postgres");
+			Object image = postgres.get("image");
+			assertThat(image instanceof String s && !s.isBlank())
+					.withFailMessage("Expected services.postgres.image to be a non-empty string in %s, but found: %s",
+							COMPOSE_FILE.toAbsolutePath().normalize(), image)
+					.isTrue();
+			return (String) image;
 		}
+	}
+
+	// Fails with the missing path named, instead of a NullPointerException or
+	// ClassCastException, if docker-compose.yml doesn't have the expected shape.
+	private static Map<?, ?> requireMap(Object value, String path) {
+		assertThat(value)
+				.withFailMessage("Expected '%s' to be a YAML mapping in %s, but found: %s",
+						path, COMPOSE_FILE.toAbsolutePath().normalize(), value)
+				.isInstanceOf(Map.class);
+		return (Map<?, ?>) value;
 	}
 
 }
